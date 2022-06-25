@@ -12,3 +12,5 @@ dlc-trie = "0.2.0"
 secp256k1-zkp = "0.5"
 secp256k1-sys = "=0.4.1"
 bitcoin = "0.27"
+rust_decimal = { version = "1", features = ["maths"] }
+rust_decimal_macros = "1"
