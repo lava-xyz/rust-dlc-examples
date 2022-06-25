@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "sports-betting"
+    "sports-betting",
+    "degen-leverage"
 ]

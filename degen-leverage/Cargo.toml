@@ -1,0 +1,14 @@
+[package]
+name = "degen-leverage"
+version = "0.1.0"
+
+[[bin]]
+name = "degen-leverage"
+path = "main.rs"
+
+[dependencies]
+dlc = "0.2.0"
+dlc-trie = "0.2.0"
+secp256k1-zkp = "0.5"
+secp256k1-sys = "=0.4.1"
+bitcoin = "0.27"

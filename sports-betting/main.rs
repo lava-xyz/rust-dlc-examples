@@ -48,6 +48,8 @@ fn create_counterparty(
     // be several of these inputs for each party which is why you should specify a `serial_id` for
     // each input for ordering purposes in the final transaction. because this tutorial assumes
     // only one input for each party, we can trivially set this as so
+    // max_witness_len describes the maximum length of a witness required to spend this outpoint.
+    // this is for the purpose of calculating fees
     let input = TxInputInfo {
         outpoint: OutPoint::null(),
         max_witness_len: 108,
@@ -71,20 +73,6 @@ fn create_counterparty(
     };
 
     (params, secret_key)
-}
-
-fn sports_bet_payout() -> Vec<Payout> {
-    // denote alice and bob as offerer and accepter respectively
-    // alice is betting on unc winning and bob is betting on duke winning
-    let unc_wins = Payout {
-        offer: 100_000,
-        accept: 0,
-    };
-    let duke_wins = Payout {
-        offer: 0,
-        accept: 100_000,
-    };
-    vec![unc_wins, duke_wins]
 }
 
 struct OracleSecret {
@@ -156,7 +144,17 @@ fn main() {
 
     let (oracle_info, oracle_secret) = get_oracle_details(&secp, &mut rng);
 
-    let payouts = sports_bet_payout();
+    // denote alice and bob as offerer and accepter respectively
+    // alice is betting on unc winning and bob is betting on duke winning
+    let unc_wins = Payout {
+        offer: 100_000,
+        accept: 0,
+    };
+    let duke_wins = Payout {
+        offer: 0,
+        accept: 100_000,
+    };
+    let payouts = vec![unc_wins, duke_wins];
 
     let refund_lock_time = 100;
     let fee_rate_per_vb = 4;
