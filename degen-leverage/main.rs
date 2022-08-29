@@ -119,12 +119,21 @@ fn generate_payouts(
     // correctedness with a grain of salt
 
     // temporarily convert these to decimals for precision
+    println!(
+        "current_bitcoin_price {} : maker_c {} : taker_c {} : leverage {}",
+        current_bitcoin_price, maker_collateral, taker_collateral, leverage_bp
+    );
     let current_bitcoin_price = Decimal::new(current_bitcoin_price.try_into().unwrap(), 0);
     let maker_collateral = Decimal::new(maker_collateral.try_into().unwrap(), 8); // sats to bitcoin 8 decimal places
     let taker_collateral = Decimal::new(taker_collateral.try_into().unwrap(), 8);
     let leverage = Decimal::new(leverage_bp.try_into().unwrap(), 4);
-
+    println!(
+        "current_bitcoin_price {} : maker_c {} : taker_c {} : leverage {}",
+        current_bitcoin_price, maker_collateral, taker_collateral, leverage
+    );
     let total_collateral = maker_collateral + taker_collateral;
+    //let total_collateral = (maker_collateral + taker_collateral) * current_bitcoin_price;
+    println!("Total collateral: {}", total_collateral);
 
     // (y - taker_collateral) = leverage * (x - current_bitcoin_price)
 
@@ -136,8 +145,7 @@ fn generate_payouts(
     let c = current_bitcoin_price * maker_collateral / leverage + current_bitcoin_price;
     let c = c.round();
 
-    println!("{}", maker_collateral);
-    println!("{}-{}", a, c);
+    println!("(a){} - (c){}", a, c);
 
     let mut range_payouts = vec![];
 
@@ -147,16 +155,33 @@ fn generate_payouts(
         count: a.to_usize().unwrap(),
         payout: Payout {
             offer: 0,
-            accept: total_collateral.to_u64().unwrap(),
+            accept: (30_000_000).to_u64().unwrap(),
         },
     });
 
     for bitcoin_price in a.to_usize().unwrap()..=c.to_usize().unwrap() {
         let bitcoin_price_dec = Decimal::new(bitcoin_price.try_into().unwrap(), 0);
-        let taker_payout =
-            leverage * (bitcoin_price_dec - current_bitcoin_price) + taker_collateral;
+        println!(
+            "bitcoin_price: {}, leverage: {}, current_bitcoin_price: {}, taker_collateral: {}",
+            bitcoin_price, leverage, current_bitcoin_price, taker_collateral
+        );
+        // let taker_payout =
+        //     leverage * (bitcoin_price_dec - current_bitcoin_price) + taker_collateral;
+
+        let taker_payout = leverage * (bitcoin_price_dec - current_bitcoin_price)
+            + (taker_collateral * current_bitcoin_price);
         let taker_payout = taker_payout.round().to_u64().unwrap();
-        let maker_payout = total_collateral.round().to_u64().unwrap() - taker_payout;
+        println!("taker_payout: {}", taker_payout);
+        let maker_payout = (total_collateral * current_bitcoin_price)
+            .round()
+            .to_u64()
+            .unwrap()
+            - taker_payout;
+        println!("maker_payout: {}", maker_payout);
+        let maker_payout = maker_payout * 100_000_000 / 20_000;
+        let taker_payout = taker_payout * 100_000_000 / 20_000;
+        println!("taker_payout_updated: {}", taker_payout);
+        println!("maker_payout_updated: {}", maker_payout);
         let payout = Payout {
             offer: maker_payout,
             accept: taker_payout,
@@ -175,12 +200,12 @@ fn generate_payouts(
         start: c.to_usize().unwrap(),
         count,
         payout: Payout {
-            offer: total_collateral.to_u64().unwrap(),
+            offer: 30_000_000,
             accept: 0,
         },
     });
 
-    println!("{:?}", range_payouts);
+    // println!("{:?}", range_payouts);
 
     range_payouts
 }
@@ -352,6 +377,27 @@ fn main() {
         .map(|rp| rp.payout.clone())
         .collect::<Vec<_>>();
 
+    print_party_params(&alice_params);
+    print_party_params(&bob_params);
+
+    println!(
+        "{} : {} : {} : {} : {}",
+        refund_lock_time, fee_rate_per_vb, fund_lock_time, cet_lock_time, fund_output_serial_id
+    );
+
+    // println!("{:?}", payouts);
+    //   100, 4, 10, 10, 0
+
+    println!("payouts[1].offer: {}, payouts[1].accept: {}, offer_params.collateral: {}, accept_params.collateral: {}", payouts[0].offer, payouts[0].accept, alice_params.collateral, bob_params.collateral);
+    /*
+    let total_collateral = offer_params.collateral + accept_params.collateral;
+
+    let has_proper_outcomes = payouts
+        .iter()
+        .all(|o| o.offer + o.accept == total_collateral);
+
+        */
+
     let dlc_transaction = dlc::create_dlc_transactions(
         &alice_params,
         &bob_params,
@@ -363,6 +409,9 @@ fn main() {
         fund_output_serial_id,
     )
     .unwrap();
+
+    //For each payout the offer + accept must equal total collateral
+    // total_collateral = offer_params.collateral + accept_params.collateral;
 
     let funding_transaction = dlc_transaction.fund;
     let cets = dlc_transaction.cets;
@@ -385,8 +434,8 @@ fn main() {
     // MUST support. `max_error_exp` is the maxmimum error that the compression algorithm can
     // support. any difference within the range [min_support_exp, max_error_exp] is not guarenteed
     // to be accepted. naturally, min_support_exp < max_error_exp. both must be powers of two
-    let min_support_exp = 32;
-    let max_error_exp = 64;
+    let min_support_exp = 16;
+    let max_error_exp = 32;
 
     // we can use this trie to efficiently create adaptor signatures, verify adaptor signatures and
     // create transaction signatures from adaptor signatures for numeric dlcs
@@ -515,6 +564,19 @@ fn signatures_to_secret(signatures: &[SchnorrSignature]) -> SecretKey {
     }
     secret
 }
+
+fn print_party_params(p: &PartyParams) {
+    println!(
+        "input amount = {} : collateral {}",
+        // p.fund_pubkey,
+        // p.change_script_pubkey,
+        // p.change_serial_id,
+        // p.payout_script_pubkey,
+        // p.payout_serial_id,
+        p.input_amount,
+        p.collateral
+    );
+} //p.inputs,
 
 struct MockBlockchain {}
 
